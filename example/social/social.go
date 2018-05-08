@@ -2,9 +2,12 @@ package social
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/graph-gophers/graphql-go/selected"
 )
 
 const Schema = `
@@ -51,8 +54,8 @@ const Schema = `
 `
 
 type page struct {
-	First *int
-	Last  *int
+	First *float64
+	Last  *float64
 }
 
 type admin interface {
@@ -101,11 +104,14 @@ func (u user) FriendsResolver(args struct{ Page *page }) (*[]*user, error) {
 
 	if args.Page != nil {
 		if args.Page.First != nil {
-			from = *args.Page.First
+			from = int(*args.Page.First)
+			if from > numFriends {
+				return nil, errors.New("not enough users")
+			}
 		}
 		if args.Page.Last != nil {
-			to = *args.Page.Last
-			if to > numFriends {
+			to = int(*args.Page.Last)
+			if to == 0 || to > numFriends {
 				to = numFriends
 			}
 		}
@@ -183,6 +189,12 @@ func (r *Resolver) Admin(ctx context.Context, args struct {
 }
 
 func (r *Resolver) User(ctx context.Context, args struct{ Id string }) (user, error) {
+	selectedFields, _ := selected.GetFieldsFromContext(ctx)
+	for _, field := range selectedFields {
+		// TODO temporary until unit test are added
+		fmt.Printf("name=%s, selectedChildren=%v, args=%v\n", field.Name, len(field.Selected) > 0, field.Args)
+	}
+
 	if usr, ok := usersMap[args.Id]; ok {
 		return *usr, nil
 	}

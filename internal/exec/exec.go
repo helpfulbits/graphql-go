@@ -14,6 +14,7 @@ import (
 	"github.com/graph-gophers/graphql-go/internal/query"
 	"github.com/graph-gophers/graphql-go/internal/schema"
 	"github.com/graph-gophers/graphql-go/log"
+	pubselected "github.com/graph-gophers/graphql-go/selected"
 	"github.com/graph-gophers/graphql-go/trace"
 )
 
@@ -176,7 +177,9 @@ func execFieldSelection(ctx context.Context, r *Request, f *fieldToExec, path *p
 		if f.field.MethodIndex != -1 {
 			var in []reflect.Value
 			if f.field.HasContext {
-				in = append(in, reflect.ValueOf(traceCtx))
+				// lazily evaluate
+				resCtx := context.WithValue(traceCtx, pubselected.ContextKey, selectedFields(f.sels))
+				in = append(in, reflect.ValueOf(resCtx))
 			}
 			if f.field.ArgsPacker != nil {
 				in = append(in, f.field.PackedArgs)
@@ -299,6 +302,32 @@ func unwrapNonNull(t common.Type) (common.Type, bool) {
 		return nn.OfType, true
 	}
 	return t, false
+}
+
+// lazily add selection fields in context
+func selectedFields(sels []selected.Selection) pubselected.SelectedFields {
+	return func() []pubselected.SelectedField {
+		return selectionToSelectedFields(sels)
+	}
+}
+
+func selectionToSelectedFields(sels []selected.Selection) []pubselected.SelectedField {
+	var selectedFields []pubselected.SelectedField
+	selsLen := len(sels)
+	if selsLen != 0 {
+		selectedFields = make([]pubselected.SelectedField, 0, selsLen)
+		for _, sel := range sels {
+			selField, ok := sel.(*selected.SchemaField)
+			if ok {
+				selectedFields = append(selectedFields, pubselected.SelectedField{
+					Name:     selField.Field.Name,
+					Args:     selField.Args,
+					Selected: selectionToSelectedFields(selField.Sels),
+				})
+			}
+		}
+	}
+	return selectedFields
 }
 
 type pathSegment struct {

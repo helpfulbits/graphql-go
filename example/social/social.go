@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/graph-gophers/graphql-go/selected"
+	"github.com/helpfulbits/graphql-go/selected"
 )
 
 const Schema = `

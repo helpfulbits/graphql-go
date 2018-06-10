@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	graphql "github.com/graph-gophers/graphql-go"
+	graphql "github.com/helpfulbits/graphql-go"
 )
 
 // Test is a GraphQL test case to be used with RunTest(s).
